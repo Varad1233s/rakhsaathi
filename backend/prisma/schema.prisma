@@ -1,0 +1,329 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  REQUESTER
+  DONOR
+  HOSPITAL
+  BLOODBANK
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_APPROVAL
+  SUSPENDED
+}
+
+enum BloodGroup {
+  A_POS
+  A_NEG
+  B_POS
+  B_NEG
+  AB_POS
+  AB_NEG
+  O_POS
+  O_NEG
+}
+
+enum VerificationStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum RequestStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  DONOR_ACCEPTED
+  MEDICAL_COORDINATION
+  FULFILLED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum Urgency {
+  NORMAL
+  URGENT
+  CRITICAL
+}
+
+enum DonorDecision {
+  ACCEPTED
+  DECLINED
+}
+
+model User {
+  id               String            @id @default(cuid())
+  email            String            @unique
+  passwordHash     String
+  name             String
+  phone            String?
+  role             Role
+  status           UserStatus        @default(ACTIVE)
+  hospitalId       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  hospital         Hospital?         @relation("HospitalStaff", fields: [hospitalId], references: [id])
+  requesterProfile RequesterProfile?
+  donorProfile     DonorProfile?
+  bloodBank        BloodBank?
+  requests         BloodRequest[]    @relation("RequestedBy")
+  responses        DonorResponse[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  submissions      HospitalSubmission[]
+
+  @@index([role])
+}
+
+model RequesterProfile {
+  id      String  @id @default(cuid())
+  userId  String  @unique
+  city    String?
+  address String?
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DonorProfile {
+  id                String     @id @default(cuid())
+  userId            String     @unique
+  bloodGroup        BloodGroup
+  city              String
+  dateOfBirth       DateTime?
+  lastDonationDate  DateTime?
+  available         Boolean    @default(true)
+  shareLocation     Boolean    @default(false)
+  // PRIVATE: never serialized to requesters/hospitals. Used server-side for distance only.
+  lat               Float?
+  lng               Float?
+  locationAccuracy  Float?
+  locationUpdatedAt DateTime?
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([bloodGroup])
+  @@index([city])
+}
+
+// The patient is a separate entity from the requester; no account needed.
+model Patient {
+  id           String         @id @default(cuid())
+  name         String
+  age          Int
+  bloodGroup   BloodGroup
+  relationship String
+  isRequester  Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  requests     BloodRequest[]
+}
+
+model Hospital {
+  id             String             @id @default(cuid())
+  name           String
+  address        String
+  city           String
+  phone          String
+  additionalInfo String?
+  lat            Float?
+  lng            Float?
+  status         VerificationStatus @default(PENDING_VERIFICATION)
+  rejectionReason String?
+  createdById    String?
+  verifiedById   String?
+  verifiedAt     DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  staff          User[]             @relation("HospitalStaff")
+  requests       BloodRequest[]
+  submissions    HospitalSubmission[]
+
+  @@index([city])
+  @@index([name])
+  @@index([status])
+}
+
+model HospitalSubmission {
+  id            String             @id @default(cuid())
+  hospitalId    String
+  submittedById String?
+  notes         String?
+  reviewStatus  VerificationStatus @default(PENDING_VERIFICATION)
+  reviewedById  String?
+  reviewNote    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime           @default(now())
+
+  hospital      Hospital           @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  submittedBy   User?              @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+}
+
+model BloodBank {
+  id          String             @id @default(cuid())
+  userId      String             @unique
+  name        String
+  address     String
+  city        String
+  phone       String
+  lat         Float?
+  lng         Float?
+  status      VerificationStatus @default(PENDING_VERIFICATION)
+  rejectionReason String?
+  verifiedAt  DateTime?
+  createdAt   DateTime           @default(now())
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inventory   BloodInventory[]
+  batches     BloodBatch[]
+  logs        InventoryLog[]
+  allocations BankAllocation[]
+
+  @@index([city])
+}
+
+model BloodRequest {
+  id              String          @id @default(cuid())
+  code            String          @unique
+  requesterId     String
+  patientId       String
+  hospitalId      String
+  bloodGroup      BloodGroup
+  units           Int
+  urgency         Urgency         @default(NORMAL)
+  requiredBy      DateTime
+  notes           String?
+  status          RequestStatus   @default(PENDING_VERIFICATION)
+  rejectionReason String?
+  flagged         Boolean         @default(false)
+  flagReason      String?
+  verifiedById    String?
+  verifiedAt      DateTime?
+  fulfilledAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  requester       User            @relation("RequestedBy", fields: [requesterId], references: [id])
+  patient         Patient         @relation(fields: [patientId], references: [id])
+  hospital        Hospital        @relation(fields: [hospitalId], references: [id])
+  responses       DonorResponse[]
+  allocations     BankAllocation[]
+
+  @@index([status])
+  @@index([hospitalId, status])
+  @@index([requesterId])
+  @@index([bloodGroup, status])
+}
+
+model DonorResponse {
+  id        String        @id @default(cuid())
+  requestId String
+  donorId   String
+  decision  DonorDecision
+  note      String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  request   BloodRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  donor     User          @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, donorId])
+  @@index([donorId])
+}
+
+model BloodInventory {
+  id           String     @id @default(cuid())
+  bloodBankId  String
+  bloodGroup   BloodGroup
+  units        Int        @default(0)
+  lowThreshold Int        @default(5)
+  updatedAt    DateTime   @updatedAt
+
+  bloodBank    BloodBank  @relation(fields: [bloodBankId], references: [id], onDelete: Cascade)
+
+  @@unique([bloodBankId, bloodGroup])
+}
+
+// Individual batch records enable expiry tracking.
+model BloodBatch {
+  id             String     @id @default(cuid())
+  bloodBankId    String
+  bloodGroup     BloodGroup
+  unitsReceived  Int
+  unitsRemaining Int
+  collectedAt    DateTime   @default(now())
+  expiresAt      DateTime
+  createdAt      DateTime   @default(now())
+
+  bloodBank      BloodBank  @relation(fields: [bloodBankId], references: [id], onDelete: Cascade)
+
+  @@index([bloodBankId, bloodGroup, expiresAt])
+}
+
+model InventoryLog {
+  id           String     @id @default(cuid())
+  bloodBankId  String
+  bloodGroup   BloodGroup
+  change       Int
+  balanceAfter Int
+  reason       String
+  actorId      String?
+  createdAt    DateTime   @default(now())
+
+  bloodBank    BloodBank  @relation(fields: [bloodBankId], references: [id], onDelete: Cascade)
+
+  @@index([bloodBankId, createdAt])
+}
+
+model BankAllocation {
+  id          String       @id @default(cuid())
+  requestId   String
+  bloodBankId String
+  bloodGroup  BloodGroup
+  units       Int
+  createdAt   DateTime     @default(now())
+
+  request     BloodRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  bloodBank   BloodBank    @relation(fields: [bloodBankId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([bloodBankId, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  requestId String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}

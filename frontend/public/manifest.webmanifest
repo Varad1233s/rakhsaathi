@@ -1,0 +1,10 @@
+{
+  "name": "RaktSaathi",
+  "short_name": "RaktSaathi",
+  "description": "Verified blood requests, donors, hospitals and blood banks.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F8FA",
+  "theme_color": "#E63950",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
