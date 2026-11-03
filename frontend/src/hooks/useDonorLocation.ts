@@ -41,7 +41,7 @@ export function useDonorLocation(initialSharing: boolean, onChanged?: () => void
       onChanged?.();
       enqueueSnackbar('Location sharing is on. Only an approximate distance is ever shown.', { variant: 'success' });
     } catch (e) {
-      const msg = e instanceof Error && 'code' in e ? explainError(e as GeolocationPositionError) : errMsg(e);
+      const msg = e instanceof Error && 'code' in e ? explainError(e as unknown as GeolocationPositionError) : errMsg(e);
       setLastError(msg); setSharing(false);
       void permissionState().then(setPerm);
     } finally { setBusy(false); }

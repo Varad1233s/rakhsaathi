@@ -15,7 +15,7 @@ export default function NearbyBanks({ bloodGroup }: { bloodGroup: BloodGroup }) 
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const { data, loading, error } = useApi(() => api.get<{ bloodBanks: Bank[] }>('/bloodbanks/nearby', { bloodGroup, ...(pos ?? {}) }), [bloodGroup, pos?.lat, pos?.lng]);
-  const locate = async () => { setErr(null); try { setPos(await getCurrentPosition()); } catch (e) { setErr(e instanceof Error && 'code' in e ? explainError(e as GeolocationPositionError) : errMsg(e)); } };
+  const locate = async () => { setErr(null); try { setPos(await getCurrentPosition()); } catch (e) { setErr(e instanceof Error && 'code' in e ? explainError(e as unknown as GeolocationPositionError) : errMsg(e)); } };
   const banks = data?.bloodBanks ?? [];
   const points: MapPoint[] = [
     ...banks.filter((b) => b.lat != null && b.lng != null).map((b) => ({ id: b.id, lat: b.lat!, lng: b.lng!, label: b.name, sub: `${b.compatibleUnits} compatible unit(s)`, kind: 'bank' as const })),
