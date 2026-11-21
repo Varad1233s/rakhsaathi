@@ -32,7 +32,6 @@ import {
   Menu as MenuIcon,
   MoreHorizontal,
   Droplet,
-  PhoneCall,
   ShieldCheck,
   User
 } from 'lucide-react';
@@ -126,19 +125,19 @@ function SideNav({ onPick }: { onPick?: () => void }) {
         ))}
       </List>
 
-      {/* Emergency Hotline mini-card in sidebar */}
+      {/* Network status mini-card in sidebar */}
       <Box sx={{ p: 2, borderRadius: 3, bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', mt: 'auto' }}>
         <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 0.5 }}>
-          <PhoneCall size={14} color="#E11D48" />
+          <ShieldCheck size={16} color="#E11D48" />
           <Typography variant="caption" fontWeight={750} color="#0F172A">
-            Emergency Hotline
+            RaktSaathi Network
           </Typography>
         </Stack>
         <Typography variant="body2" fontWeight={800} color="#E11D48">
-          104 / 108
+          Verified Active Grid
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          24/7 National Blood Cell
+          Real-time Hospital Dispatch
         </Typography>
       </Box>
     </Box>
@@ -203,24 +202,6 @@ export function DashboardLayout() {
             {!desktop && <Brand />}
 
             <Box sx={{ flexGrow: 1 }} />
-
-            {/* Helpline quick dial pill */}
-            <Chip
-              component="a"
-              href="tel:104"
-              clickable
-              icon={<PhoneCall size={13} color="#E11D48" />}
-              label="Helpline 104"
-              size="small"
-              sx={{
-                display: { xs: 'none', sm: 'flex' },
-                bgcolor: '#FFF1F2',
-                color: '#BE123C',
-                border: '1px solid rgba(225,29,72,0.2)',
-                fontWeight: 700,
-                fontSize: 12
-              }}
-            />
 
             {/* Notification Bell */}
             <IconButton
