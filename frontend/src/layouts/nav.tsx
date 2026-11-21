@@ -15,6 +15,8 @@ export const NAV: Record<Role, NavItem[]> = {
   ],
   DONOR: [
     { label: 'Dashboard', to: '/donor/dashboard', icon: <LayoutDashboard size={i} />, bottom: true },
+    { label: 'Request blood', to: '/donor/request-blood', icon: <PlusCircle size={i} /> },
+    { label: 'My requests', to: '/donor/my-requests', icon: <ClipboardList size={i} /> },
     { label: 'Nearby requests', to: '/donor/requests', icon: <Droplets size={i} />, bottom: true },
     { label: 'My responses', to: '/donor/responses', icon: <HeartHandshake size={i} />, bottom: true },
     { label: 'History', to: '/donor/history', icon: <History size={i} />, bottom: true },

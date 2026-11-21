@@ -22,17 +22,17 @@ const createSchema = z.object({
   notes: z.string().trim().max(500).optional()
 });
 
-requestsRouter.post('/', requireRole('REQUESTER'), asyncHandler(async (req, res) => {
+requestsRouter.post('/', requireRole('REQUESTER', 'DONOR'), asyncHandler(async (req, res) => {
   const input = createSchema.parse(req.body);
   const { request, duplicateOf } = await createRequest(req.user!, input as never);
-  res.status(201).json({ request: serializeRequest(request, 'REQUESTER', req.user!.id), duplicateWarning: duplicateOf ? `This looks similar to ${duplicateOf}. The hospital may review it as a possible duplicate.` : null });
+  res.status(201).json({ request: serializeRequest(request, req.user!.role, req.user!.id), duplicateWarning: duplicateOf ? `This looks similar to ${duplicateOf}. The hospital may review it as a possible duplicate.` : null });
 }));
 
-requestsRouter.get('/', requireRole('REQUESTER', 'HOSPITAL', 'BLOODBANK', 'ADMIN'), asyncHandler(async (req, res) => {
+requestsRouter.get('/', requireRole('REQUESTER', 'DONOR', 'HOSPITAL', 'BLOODBANK', 'ADMIN'), asyncHandler(async (req, res) => {
   const u = req.user!;
   const status = req.query.status ? String(req.query.status).split(',') : undefined;
   let where: Prisma.BloodRequestWhereInput = {};
-  if (u.role === 'REQUESTER') where = { requesterId: u.id };
+  if (u.role === 'REQUESTER' || u.role === 'DONOR') where = { requesterId: u.id };
   else if (u.role === 'HOSPITAL') where = { hospitalId: u.hospitalId ?? '__none__' };
   else if (u.role === 'BLOODBANK') where = { status: { in: ['VERIFIED', 'DONOR_ACCEPTED', 'MEDICAL_COORDINATION'] } };
   if (status && u.role !== 'BLOODBANK') where = { ...where, status: { in: status as never[] } };
@@ -44,20 +44,19 @@ requestsRouter.get('/', requireRole('REQUESTER', 'HOSPITAL', 'BLOODBANK', 'ADMIN
 async function loadScoped(req: { user?: { id: string; role: string; hospitalId: string | null } }, id: string): Promise<FullRequest> {
   const r = await getRequestOr404(id);
   const u = req.user!;
-  if (u.role === 'REQUESTER' && r.requesterId !== u.id) throw new HttpError(403, 'Not your request');
+  if ((u.role === 'REQUESTER' || u.role === 'DONOR') && r.requesterId !== u.id) throw new HttpError(403, 'Not your request');
   if (u.role === 'HOSPITAL' && r.hospitalId !== u.hospitalId) throw new HttpError(403, 'This request belongs to another hospital');
-  if (u.role === 'DONOR') throw new HttpError(403, 'Use the donor endpoints');
   return r;
 }
 
-requestsRouter.get('/:id', requireRole('REQUESTER', 'HOSPITAL', 'BLOODBANK', 'ADMIN'), asyncHandler(async (req, res) => {
+requestsRouter.get('/:id', requireRole('REQUESTER', 'DONOR', 'HOSPITAL', 'BLOODBANK', 'ADMIN'), asyncHandler(async (req, res) => {
   const r = await loadScoped(req, String(req.params.id));
   if (req.user!.role === 'BLOODBANK' && !['VERIFIED', 'DONOR_ACCEPTED', 'MEDICAL_COORDINATION', 'FULFILLED'].includes(r.status)) throw new HttpError(403, 'Request not open for blood banks');
   res.json({ request: serializeRequest(r, req.user!.role, req.user!.id) });
 }));
 
 /** Status timeline from the audit log (no donor identities). */
-requestsRouter.get('/:id/timeline', requireRole('REQUESTER', 'HOSPITAL', 'ADMIN'), asyncHandler(async (req, res) => {
+requestsRouter.get('/:id/timeline', requireRole('REQUESTER', 'DONOR', 'HOSPITAL', 'ADMIN'), asyncHandler(async (req, res) => {
   const r = await loadScoped(req, String(req.params.id));
   const logs = await prisma.auditLog.findMany({ where: { entity: 'BloodRequest', entityId: r.id }, orderBy: { createdAt: 'asc' } });
   res.json({ events: logs.map((l) => ({ id: l.id, action: l.action, at: l.createdAt, meta: l.action === 'DONOR_RESPONDED' ? { decision: (l.meta as { decision?: string } | null)?.decision } : (l.meta && typeof l.meta === 'object' && 'to' in l.meta ? { to: (l.meta as { to: string }).to } : null) })) });
@@ -104,7 +103,7 @@ requestsRouter.post('/:id/fulfill', requireRole('HOSPITAL'), asyncHandler(async 
   res.json({ ok: true });
 }));
 
-requestsRouter.post('/:id/cancel', requireRole('REQUESTER'), asyncHandler(async (req, res) => {
+requestsRouter.post('/:id/cancel', requireRole('REQUESTER', 'DONOR'), asyncHandler(async (req, res) => {
   const r = await getRequestOr404(String(req.params.id));
   if (r.requesterId !== req.user!.id) throw new HttpError(403, 'Not your request');
   await moveStatus(r, 'CANCELLED', req.user!.id);

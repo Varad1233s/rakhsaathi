@@ -5,6 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useSnackbar } from 'notistack';
+import { useAuth } from '@/context/AuthContext';
 import { api, errMsg } from '@/services/api';
 import { BLOOD_GROUPS, type HospitalLite, type RequestView } from '@/types';
 import { bloodLabel, toLocalInput } from '@/utils/format';
@@ -32,6 +33,7 @@ type FormOut = z.output<typeof schema>;
 
 export default function RequestBlood() {
   const nav = useNavigate();
+  const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
   const [hospital, setHospital] = useState<HospitalLite | null>(null);
   const [hospErr, setHospErr] = useState(false);
@@ -52,7 +54,8 @@ export default function RequestBlood() {
       });
       if (r.duplicateWarning) setDupe(r.duplicateWarning);
       enqueueSnackbar('Request sent to the hospital for verification.', { variant: 'success' });
-      nav(`/requester/requests/${r.request.id}`);
+      const targetPath = user?.role === 'DONOR' ? `/donor/my-requests/${r.request.id}` : `/requester/requests/${r.request.id}`;
+      nav(targetPath);
     } catch (e) { enqueueSnackbar(errMsg(e), { variant: 'error' }); }
   });
 

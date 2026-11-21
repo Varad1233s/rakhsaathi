@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Card, FormControlLabel, Stack, Switch, Typography } from '@mui/material';
-import { HeartHandshake, MapPin, Siren, Droplets } from 'lucide-react';
+import { HeartHandshake, MapPin, Siren, Droplets, PlusCircle } from 'lucide-react';
 import { useSnackbar } from 'notistack';
 import { api, errMsg } from '@/services/api';
 import { useApi } from '@/hooks/useApi';
@@ -27,8 +27,26 @@ export default function DonorDashboard() {
 
   return (
     <>
-      <PageHeader title={`Hello, ${user!.name.split(' ')[0]}`} subtitle={donor ? `Blood group ${bloodLabel(donor.bloodGroup)} · ${donor.city}` : undefined}
-        actions={<FormControlLabel control={<Switch checked={donor?.available ?? true} onChange={(_, v) => void setAvail(v)} />} label="Available to donate" />} />
+      <PageHeader
+        title={`Hello, ${user!.name.split(' ')[0]}`}
+        subtitle={donor ? `Blood group ${bloodLabel(donor.bloodGroup)} · ${donor.city}` : undefined}
+        actions={
+          <Stack direction="row" gap={1.5} alignItems="center" flexWrap="wrap">
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<PlusCircle size={18} />}
+              onClick={() => nav('/donor/request-blood')}
+            >
+              Request blood
+            </Button>
+            <FormControlLabel
+              control={<Switch checked={donor?.available ?? true} onChange={(_, v) => void setAvail(v)} />}
+              label="Available to donate"
+            />
+          </Stack>
+        }
+      />
       <Stack gap={3}>
         <LocationCard sharing={!!donor?.shareLocation} onChanged={() => { void refresh(); void silent(); }} />
         {error ? <ErrorBlock message={error} onRetry={() => void reload()} /> : loading || !reqs ? <LoadingBlock /> : (<>

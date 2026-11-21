@@ -7,11 +7,12 @@ const prisma = new PrismaClient();
 const GROUPS: BloodGroup[] = ['A_POS', 'A_NEG', 'B_POS', 'B_NEG', 'AB_POS', 'AB_NEG', 'O_POS', 'O_NEG'];
 
 async function main() {
-  const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'admin@raktsaathi.local').toLowerCase();
-  const adminPass = process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe@12345';
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'patilvarad369@gmail.com').toLowerCase();
+  const adminPass = process.env.SEED_ADMIN_PASSWORD ?? 'Varad123123123@';
   await prisma.user.upsert({
-    where: { email: adminEmail }, update: {},
-    create: { email: adminEmail, name: 'RaktSaathi Admin', role: 'ADMIN', passwordHash: await bcrypt.hash(adminPass, 12) }
+    where: { email: adminEmail },
+    update: { passwordHash: await bcrypt.hash(adminPass, 12), role: 'ADMIN', name: 'Varadraj Patil (Admin)' },
+    create: { email: adminEmail, name: 'Varadraj Patil (Admin)', role: 'ADMIN', passwordHash: await bcrypt.hash(adminPass, 12) }
   });
   console.log(`Admin ready: ${adminEmail}`);
   if (process.env.SEED_DEMO_DATA !== 'true') return;

@@ -60,6 +60,9 @@ export default function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/donor" element={<Navigate to="/donor/dashboard" replace />} />
           <Route path="/donor/dashboard" element={<DonorDashboard />} />
+          <Route path="/donor/request-blood" element={<RequestBlood />} />
+          <Route path="/donor/my-requests" element={<RequestsList title="My requests" subtitle="Every request you created" basePath="/donor/my-requests" scope="active" />} />
+          <Route path="/donor/my-requests/:id" element={<RequestDetail backPath="/donor/my-requests" />} />
           <Route path="/donor/requests" element={<DonorRequests />} />
           <Route path="/donor/requests/:id" element={<DonorRequestDetail />} />
           <Route path="/donor/responses" element={<DonorResponses />} />

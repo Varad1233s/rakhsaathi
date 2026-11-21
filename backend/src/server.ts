@@ -7,7 +7,7 @@ import { env, clientOrigins } from './config/env';
 import { prisma } from './config/db';
 import { errorHandler } from './utils/http';
 import { initSocket } from './sockets';
-import { authRouter } from './routes/auth';
+import { authRouter, ensureDefaultAdmin } from './routes/auth';
 import { hospitalsRouter } from './routes/hospitals';
 import { requestsRouter } from './routes/requests';
 import { donorRouter } from './routes/donor';
@@ -42,7 +42,10 @@ app.use(errorHandler);
 
 const server = http.createServer(app);
 initSocket(server);
-server.listen(env.PORT, () => console.log(`RaktSaathi API listening on http://localhost:${env.PORT}`));
+server.listen(env.PORT, () => {
+  console.log(`RaktSaathi API listening on http://localhost:${env.PORT}`);
+  ensureDefaultAdmin().catch((e) => console.error('Admin init check error:', e));
+});
 
 // Expire overdue requests every 5 minutes.
 setInterval(() => { expireOverdueRequests().catch((e) => console.error('expiry job failed', e)); }, 5 * 60 * 1000);

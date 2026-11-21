@@ -37,13 +37,13 @@ export function serializeRequest(r: FullRequest, role: Role, viewerId: string) {
     unitsFromBank, acceptedCount: accepted.length,
     hospital: { id: r.hospital.id, name: r.hospital.name, city: r.hospital.city, address: r.hospital.address, phone: r.hospital.phone, lat: r.hospital.lat, lng: r.hospital.lng }
   };
-  if (role === 'DONOR') return { ...base, notes: null };
+  if (role === 'DONOR' && r.requesterId !== viewerId) return { ...base, notes: null };
   const patient = { name: r.patient.name, age: r.patient.age, bloodGroup: r.patient.bloodGroup, relationship: r.patient.relationship, isRequester: r.patient.isRequester };
   const allocations = r.allocations.map((a) => ({ id: a.id, bloodBank: a.bloodBank.name, city: a.bloodBank.city, bloodGroup: a.bloodGroup, units: a.units, createdAt: a.createdAt }));
   if (role === 'BLOODBANK') {
     return { ...base, patient: { age: r.patient.age }, allocations };
   }
-  if (role === 'REQUESTER') {
+  if (role === 'REQUESTER' || (role === 'DONOR' && r.requesterId === viewerId)) {
     if (r.requesterId !== viewerId) throw new HttpError(403, 'Not your request');
     return {
       ...base, patient, allocations, requester: { name: r.requester.name },

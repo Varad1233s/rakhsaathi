@@ -8,6 +8,12 @@ import { BLOOD_GROUPS } from '../utils/bloodGroups';
 import { audit } from '../services/notify';
 import { ensureInventoryRows } from '../services/bankService';
 import { emitToRole } from '../sockets';
+import {
+  sendVerificationOtp,
+  verifyOtp,
+  isEmailVerified,
+  consumeEmailVerification
+} from '../services/emailService';
 
 export const hospitalInput = z.object({
   name: z.string().trim().min(3).max(150),
@@ -25,7 +31,13 @@ const registerSchema = z.object({
   password: z.string().min(8).max(100),
   phone: z.string().trim().min(7).max(20).optional(),
   role: z.enum(['REQUESTER', 'DONOR', 'HOSPITAL', 'BLOODBANK']),
-  donor: z.object({ bloodGroup: z.enum(BLOOD_GROUPS), city: z.string().trim().min(2), dateOfBirth: z.string(), lastDonationDate: z.string().optional() }).optional(),
+  otp: z.string().trim().optional(),
+  donor: z.object({
+    bloodGroup: z.enum(BLOOD_GROUPS),
+    city: z.string().trim().min(2),
+    dateOfBirth: z.string(),
+    lastDonationDate: z.string().optional()
+  }).optional(),
   hospitalId: z.string().optional(),
   newHospital: hospitalInput.optional(),
   bloodBank: hospitalInput.omit({ additionalInfo: true }).optional()
@@ -37,9 +49,49 @@ export function publicUser(u: { id: string; name: string; email: string; role: s
 
 export const authRouter = Router();
 
+/** Send a 6-digit OTP code to the provided email (Gmail) */
+authRouter.post('/send-otp', asyncHandler(async (req, res) => {
+  const { email } = z.object({ email: z.string().trim().toLowerCase().email() }).parse(req.body);
+  const exists = await prisma.user.findUnique({ where: { email } });
+  if (exists) throw new HttpError(409, 'An account with this email already exists');
+
+  const result = await sendVerificationOtp(email);
+  res.json({
+    ok: true,
+    message: 'Verification code sent to your email',
+    devOtp: result.devOtp
+  });
+}));
+
+/** Verify candidate 6-digit OTP code */
+authRouter.post('/verify-otp', asyncHandler(async (req, res) => {
+  const { email, otp } = z.object({
+    email: z.string().trim().toLowerCase().email(),
+    otp: z.string().trim().min(4).max(10)
+  }).parse(req.body);
+
+  const valid = verifyOtp(email, otp);
+  if (!valid) throw new HttpError(400, 'Invalid or expired verification code');
+
+  res.json({ ok: true, verified: true, message: 'Email verified successfully' });
+}));
+
 authRouter.post('/register', asyncHandler(async (req, res) => {
   const b = registerSchema.parse(req.body);
-  if (await prisma.user.findUnique({ where: { email: b.email } })) throw new HttpError(409, 'An account with this email already exists');
+  if (await prisma.user.findUnique({ where: { email: b.email } })) {
+    throw new HttpError(409, 'An account with this email already exists');
+  }
+
+  // Verify OTP check
+  let verified = isEmailVerified(b.email);
+  if (!verified && b.otp) {
+    verified = verifyOtp(b.email, b.otp);
+  }
+  if (!verified) {
+    throw new HttpError(400, 'Please verify your Gmail with an OTP code before completing registration.');
+  }
+  consumeEmailVerification(b.email);
+
   const passwordHash = await bcrypt.hash(b.password, 12);
   let status: 'ACTIVE' | 'PENDING_APPROVAL' = 'ACTIVE';
 
@@ -63,7 +115,7 @@ authRouter.post('/register', asyncHandler(async (req, res) => {
     let hospitalId: string | null = null;
     if (b.role === 'HOSPITAL') {
       if (b.newHospital) {
-        const h = await tx.hospital.create({ data: { ...b.newHospital, status: 'PENDING_VERIFICATION' } }); // never auto-verified
+        const h = await tx.hospital.create({ data: { ...b.newHospital, status: 'PENDING_VERIFICATION' } });
         await tx.hospitalSubmission.create({ data: { hospitalId: h.id, notes: b.newHospital.additionalInfo } });
         hospitalId = h.id;
       } else hospitalId = b.hospitalId!;
@@ -71,20 +123,42 @@ authRouter.post('/register', asyncHandler(async (req, res) => {
     const u = await tx.user.create({ data: { name: b.name, email: b.email, passwordHash, phone: b.phone, role: b.role, status, hospitalId } });
     if (b.role === 'REQUESTER') await tx.requesterProfile.create({ data: { userId: u.id } });
     if (b.role === 'DONOR') {
-      await tx.donorProfile.create({ data: { userId: u.id, bloodGroup: b.donor!.bloodGroup, city: b.donor!.city, dateOfBirth: new Date(b.donor!.dateOfBirth), lastDonationDate: b.donor!.lastDonationDate ? new Date(b.donor!.lastDonationDate) : null } });
+      await tx.donorProfile.create({
+        data: {
+          userId: u.id,
+          bloodGroup: b.donor!.bloodGroup,
+          city: b.donor!.city,
+          dateOfBirth: new Date(b.donor!.dateOfBirth),
+          lastDonationDate: b.donor!.lastDonationDate ? new Date(b.donor!.lastDonationDate) : null
+        }
+      });
     }
     if (b.role === 'BLOODBANK') await tx.bloodBank.create({ data: { userId: u.id, ...b.bloodBank!, status: 'PENDING_VERIFICATION' } });
     if (b.role === 'HOSPITAL' && b.newHospital) await tx.hospitalSubmission.updateMany({ where: { hospitalId: hospitalId! }, data: { submittedById: u.id } });
     return u;
   });
+
   if (b.role === 'BLOODBANK') {
     const bank = await prisma.bloodBank.findUnique({ where: { userId: user.id } });
     if (bank) await ensureInventoryRows(bank.id);
   }
   await audit(user.id, 'USER_REGISTERED', 'User', user.id, { role: b.role });
-  if (b.role === 'HOSPITAL' || b.role === 'BLOODBANK') emitToRole('ADMIN', 'notification.created', { type: 'VERIFICATION_NEEDED', title: 'New verification pending', body: `${b.role} registration awaits review`, id: `tmp-${user.id}`, createdAt: new Date() });
+  if (b.role === 'HOSPITAL' || b.role === 'BLOODBANK') {
+    emitToRole('ADMIN', 'notification.created', {
+      type: 'VERIFICATION_NEEDED',
+      title: 'New verification pending',
+      body: `${b.role} registration awaits review`,
+      id: `tmp-${user.id}`,
+      createdAt: new Date()
+    });
+  }
 
-  if (status === 'PENDING_APPROVAL') return res.status(202).json({ pendingApproval: true, message: 'Account created. An admin must approve your access to this hospital before you can sign in.' });
+  if (status === 'PENDING_APPROVAL') {
+    return res.status(202).json({
+      pendingApproval: true,
+      message: 'Account created. An admin must approve your access to this hospital before you can sign in.'
+    });
+  }
   res.status(201).json({ token: signToken(user.id), user: publicUser(user) });
 }));
 
@@ -109,3 +183,20 @@ authRouter.get('/me', requireAuth, asyncHandler(async (req, res) => {
     donor: donorProfile ? { bloodGroup: donorProfile.bloodGroup, city: donorProfile.city, available: donorProfile.available, shareLocation: donorProfile.shareLocation, hasLocation: donorProfile.lat != null, lastDonationDate: donorProfile.lastDonationDate } : null
   });
 }));
+
+/** Ensure the designated admin account is present in the database */
+export async function ensureDefaultAdmin() {
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'patilvarad369@gmail.com').toLowerCase();
+  const adminPass = process.env.SEED_ADMIN_PASSWORD ?? 'Varad123123123@';
+  try {
+    const passwordHash = await bcrypt.hash(adminPass, 12);
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: { passwordHash, role: 'ADMIN', status: 'ACTIVE', name: 'Varadraj Patil (Admin)' },
+      create: { email: adminEmail, name: 'Varadraj Patil (Admin)', role: 'ADMIN', status: 'ACTIVE', passwordHash }
+    });
+    console.log(`[RaktSaathi Admin] Guaranteed admin user: ${adminEmail}`);
+  } catch (err) {
+    console.error('[RaktSaathi Admin] Could not verify/upsert admin on startup:', err);
+  }
+}

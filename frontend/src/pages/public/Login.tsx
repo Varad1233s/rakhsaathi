@@ -44,8 +44,7 @@ const DEMO_ACCOUNTS = [
   { role: 'Requester', email: 'requester@demo.local', pass: 'Demo@12345' },
   { role: 'Donor (O+)', email: 'arjun@demo.local', pass: 'Demo@12345' },
   { role: 'Hospital', email: 'hospital@demo.local', pass: 'Demo@12345' },
-  { role: 'Blood Bank', email: 'bank@demo.local', pass: 'Demo@12345' },
-  { role: 'Admin', email: 'admin@raktsaathi.local', pass: 'ChangeMe@12345' }
+  { role: 'Blood Bank', email: 'bank@demo.local', pass: 'Demo@12345' }
 ];
 
 export function AuthShell({
