@@ -1,11 +1,118 @@
 @import 'leaflet/dist/leaflet.css';
 
-:root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
-* { box-sizing: border-box; }
-html, body, #root { min-height: 100%; }
-html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: #F7F8FA; color: #17191D; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --primary-red: #E11D48;
+  --primary-dark: #BE123C;
+  --primary-light: #FFF1F2;
+  --primary-glow: rgba(225, 29, 72, 0.25);
+  --surface-bg: #F8FAFC;
+  --slate-900: #0F172A;
+  --slate-800: #1E293B;
+  --slate-600: #475569;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: #F8FAFC;
+  color: #0F172A;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
 /* iOS Safari zooms into inputs below 16px; keep inputs at 16px on touch screens */
-@media (max-width: 899px) { input, select, textarea { font-size: 16px !important; } }
-.leaflet-container { font-family: inherit; border-radius: 12px; z-index: 0; }
-img, svg { max-width: 100%; }
+@media (max-width: 899px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+.leaflet-container {
+  font-family: inherit;
+  border-radius: 16px;
+  z-index: 0;
+}
+
+img, svg {
+  max-width: 100%;
+}
+
+/* Pulse & glow animations */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 12px rgba(225, 29, 72, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0);
+  }
+}
+
+.radar-badge {
+  animation: radar-pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes float-subtle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.float-animation {
+  animation: float-subtle 4s ease-in-out infinite;
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

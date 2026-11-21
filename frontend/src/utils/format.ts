@@ -1,4 +1,5 @@
 import type { BloodGroup, RequestStatus, Role, Urgency, VerificationStatus } from '@/types';
+import { BLOOD_GROUPS } from '@/types';
 
 export const bloodLabel = (g?: string | null) => (g ? g.replace('_POS', '+').replace('_NEG', '-') : '—');
 export const fmtDate = (d?: string | Date | null) => (d ? new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
@@ -24,20 +25,62 @@ export const STATUS_META: Record<RequestStatus, { label: string; tone: Tone }> =
   EXPIRED: { label: 'Expired', tone: 'default' }
 };
 export const VERIFICATION_META: Record<VerificationStatus, { label: string; tone: Tone }> = {
-  PENDING_VERIFICATION: { label: 'Pending verification', tone: 'warning' }, VERIFIED: { label: 'Verified', tone: 'success' },
-  REJECTED: { label: 'Rejected', tone: 'error' }, SUSPENDED: { label: 'Suspended', tone: 'default' }
+  PENDING_VERIFICATION: { label: 'Pending verification', tone: 'warning' },
+  VERIFIED: { label: 'Verified', tone: 'success' },
+  REJECTED: { label: 'Rejected', tone: 'error' },
+  SUSPENDED: { label: 'Suspended', tone: 'default' }
 };
 export const URGENCY_TONE: Record<Urgency, Tone> = { NORMAL: 'default', URGENT: 'warning', CRITICAL: 'error' };
 export const ACTIVE: RequestStatus[] = ['PENDING_VERIFICATION', 'VERIFIED', 'DONOR_ACCEPTED', 'MEDICAL_COORDINATION'];
 export const isActive = (s: RequestStatus) => ACTIVE.includes(s);
 
-export const ROLE_HOME: Record<Role, string> = { REQUESTER: '/requester/dashboard', DONOR: '/donor/dashboard', HOSPITAL: '/hospital/dashboard', BLOODBANK: '/bloodbank/dashboard', ADMIN: '/admin/dashboard' };
+export const ROLE_HOME: Record<Role, string> = {
+  REQUESTER: '/requester/dashboard',
+  DONOR: '/donor/dashboard',
+  HOSPITAL: '/hospital/dashboard',
+  BLOODBANK: '/bloodbank/dashboard',
+  ADMIN: '/admin/dashboard'
+};
+
 export const requestPath = (role: Role, id: string) =>
-  role === 'REQUESTER' ? `/requester/requests/${id}` : role === 'DONOR' ? `/donor/requests/${id}` : role === 'HOSPITAL' ? `/hospital/requests/${id}` : role === 'BLOODBANK' ? '/bloodbank/requests' : '/admin/requests';
+  role === 'REQUESTER'
+    ? `/requester/requests/${id}`
+    : role === 'DONOR'
+      ? `/donor/requests/${id}`
+      : role === 'HOSPITAL'
+        ? `/hospital/requests/${id}`
+        : role === 'BLOODBANK'
+          ? '/bloodbank/requests'
+          : '/admin/requests';
 
 export const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
   const R = 6371.0088, r = (d: number) => (d * Math.PI) / 180;
   const x = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
 };
+
+/** Deterministic red-cell compatibility table for quick donor/recipient verification */
+export const DONORS_FOR_RECIPIENT: Record<BloodGroup, BloodGroup[]> = {
+  O_NEG: ['O_NEG'],
+  O_POS: ['O_POS', 'O_NEG'],
+  A_NEG: ['A_NEG', 'O_NEG'],
+  A_POS: ['A_POS', 'A_NEG', 'O_POS', 'O_NEG'],
+  B_NEG: ['B_NEG', 'O_NEG'],
+  B_POS: ['B_POS', 'B_NEG', 'O_POS', 'O_NEG'],
+  AB_NEG: ['AB_NEG', 'A_NEG', 'B_NEG', 'O_NEG'],
+  AB_POS: ['AB_POS', 'AB_NEG', 'A_POS', 'A_NEG', 'B_POS', 'B_NEG', 'O_POS', 'O_NEG']
+};
+
+export function canDonateRedCells(donor: BloodGroup, recipient: BloodGroup): boolean {
+  return DONORS_FOR_RECIPIENT[recipient].includes(donor);
+}
+
+export function recipientsForDonor(donor: BloodGroup): BloodGroup[] {
+  return (BLOOD_GROUPS as readonly BloodGroup[]).filter((r) => DONORS_FOR_RECIPIENT[r].includes(donor));
+}
+
+export function donorsForRecipient(recipient: BloodGroup): BloodGroup[] {
+  return [...DONORS_FOR_RECIPIENT[recipient]];
+}
+
 export type { BloodGroup };
