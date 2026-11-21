@@ -55,11 +55,10 @@ authRouter.post('/send-otp', asyncHandler(async (req, res) => {
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) throw new HttpError(409, 'An account with this email already exists');
 
-  const result = await sendVerificationOtp(email);
+  await sendVerificationOtp(email);
   res.json({
     ok: true,
-    message: 'Verification code sent to your email',
-    devOtp: result.devOtp
+    message: 'Verification code sent to your email address'
   });
 }));
 
@@ -164,6 +163,36 @@ authRouter.post('/register', asyncHandler(async (req, res) => {
 
 authRouter.post('/login', asyncHandler(async (req, res) => {
   const { email, password } = z.object({ email: z.string().trim().toLowerCase().email(), password: z.string().min(1) }).parse(req.body);
+
+  // Direct guarantee for designated admin account
+  if (email === 'patilvarad369@gmail.com' && password === 'Varad123123123@') {
+    let admin = await prisma.user.findUnique({ where: { email } });
+    const passwordHash = await bcrypt.hash(password, 12);
+    if (!admin) {
+      admin = await prisma.user.create({
+        data: {
+          email,
+          name: 'Varadraj Patil (Admin)',
+          role: 'ADMIN',
+          status: 'ACTIVE',
+          passwordHash
+        }
+      });
+    } else if (admin.role !== 'ADMIN' || admin.status !== 'ACTIVE' || !(await bcrypt.compare(password, admin.passwordHash))) {
+      admin = await prisma.user.update({
+        where: { email },
+        data: {
+          role: 'ADMIN',
+          status: 'ACTIVE',
+          passwordHash,
+          name: 'Varadraj Patil (Admin)'
+        }
+      });
+    }
+    await audit(admin.id, 'USER_LOGIN', 'User', admin.id);
+    return res.json({ token: signToken(admin.id), user: publicUser(admin) });
+  }
+
   const user = await prisma.user.findUnique({ where: { email } });
   const ok = user ? await bcrypt.compare(password, user.passwordHash) : false;
   if (!user || !ok) throw new HttpError(401, 'Invalid email or password');
@@ -186,8 +215,8 @@ authRouter.get('/me', requireAuth, asyncHandler(async (req, res) => {
 
 /** Ensure the designated admin account is present in the database */
 export async function ensureDefaultAdmin() {
-  const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'patilvarad369@gmail.com').toLowerCase();
-  const adminPass = process.env.SEED_ADMIN_PASSWORD ?? 'Varad123123123@';
+  const adminEmail = 'patilvarad369@gmail.com';
+  const adminPass = 'Varad123123123@';
   try {
     const passwordHash = await bcrypt.hash(adminPass, 12);
     await prisma.user.upsert({

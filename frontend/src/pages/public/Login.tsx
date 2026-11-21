@@ -23,7 +23,6 @@ import {
   Heart,
   Lock,
   Mail,
-  PhoneCall,
   ShieldCheck,
   Sparkles
 } from 'lucide-react';
@@ -191,7 +190,7 @@ export function AuthShell({
                 </Stack>
               </Box>
 
-              {/* Bottom Helpline Badge */}
+              {/* Bottom Trust Badge */}
               <Box
                 sx={{
                   mt: 4,
@@ -202,13 +201,13 @@ export function AuthShell({
                   gap: 1.5
                 }}
               >
-                <PhoneCall size={18} color="#FFFFFF" />
+                <ShieldCheck size={20} color="#FFFFFF" />
                 <Box>
                   <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600, display: 'block' }}>
-                    NATIONAL 24/7 BLOOD HELPLINE
+                    VERIFIED HEALTHCARE NETWORK
                   </Typography>
                   <Typography variant="body2" fontWeight={800} color="#FFFFFF">
-                    104 / 108 (Toll-Free Emergency)
+                    Hospital Authenticated & Privacy-First
                   </Typography>
                 </Box>
               </Box>

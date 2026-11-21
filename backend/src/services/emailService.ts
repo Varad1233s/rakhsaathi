@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { HttpError } from '../utils/http';
 
 interface StoredOtp {
   otp: string;
@@ -20,15 +21,23 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 function getTransporter() {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.SMTP_PORT || '465', 10);
-  const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+  const user = process.env.GMAIL_USER || process.env.SMTP_USER || 'patilvarad369@gmail.com';
+  const pass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
 
-  if (!user || !pass) {
+  if (!pass) {
     return null;
   }
 
+  // Use Gmail service if Gmail user or generic SMTP
+  if (user.includes('@gmail.com') || !process.env.SMTP_HOST) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass }
+    });
+  }
+
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
   return nodemailer.createTransport({
     host,
     port,
@@ -41,59 +50,68 @@ export function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export async function sendVerificationOtp(email: string): Promise<{ sent: boolean; devOtp?: string }> {
+export async function sendVerificationOtp(email: string): Promise<{ sent: boolean }> {
   const normalized = email.trim().toLowerCase();
   const otp = generateOtp();
   const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-  otpStore.set(normalized, { otp, expiresAt });
-  console.log(`[RaktSaathi OTP] Verification code for ${normalized}: ${otp} (expires in 10m)`);
-
   const transporter = getTransporter();
   if (!transporter) {
-    console.log(`[RaktSaathi OTP] No SMTP configured. Using development mode with instant code.`);
-    return { sent: true, devOtp: otp };
+    console.error(`[RaktSaathi OTP] Cannot send email: GMAIL_APP_PASSWORD is not configured in environment variables.`);
+    throw new HttpError(
+      500,
+      'Email server is not configured. Please add GMAIL_APP_PASSWORD to your environment settings.'
+    );
   }
+
+  const fromEmail = process.env.GMAIL_USER || process.env.SMTP_USER || 'patilvarad369@gmail.com';
 
   try {
     await transporter.sendMail({
-      from: `"RaktSaathi Lifeline Network" <${process.env.SMTP_USER || process.env.GMAIL_USER || 'no-reply@raktsaathi.local'}>`,
+      from: `"RaktSaathi Verification" <${fromEmail}>`,
       to: normalized,
-      subject: `Your RaktSaathi Verification Code: ${otp}`,
+      subject: `${otp} is your RaktSaathi verification code`,
+      text: `Your RaktSaathi verification code is: ${otp}. Valid for 10 minutes. Do not share this code.`,
       html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 32px 24px; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0;">
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0;">
           <div style="text-align: center; margin-bottom: 24px;">
-            <div style="display: inline-block; width: 48px; height: 48px; line-height: 48px; border-radius: 12px; background: linear-gradient(135deg, #E11D48, #BE123C); color: #ffffff; font-size: 24px; font-weight: bold;">
+            <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; background: #E11D48; color: #ffffff; font-size: 22px;">
               🩸
             </div>
-            <h2 style="color: #0F172A; margin: 12px 0 4px; font-size: 22px; font-weight: 800;">RaktSaathi Network</h2>
-            <p style="color: #64748B; margin: 0; font-size: 14px;">Emergency Blood Coordination Platform</p>
+            <h2 style="color: #0F172A; margin: 12px 0 4px; font-size: 22px; font-weight: 800;">RaktSaathi</h2>
+            <p style="color: #64748B; margin: 0; font-size: 13px;">Verified Emergency Blood Lifeline</p>
           </div>
 
-          <div style="background: #FFF1F2; border: 1px solid rgba(225, 29, 72, 0.2); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
-            <p style="margin: 0 0 10px; color: #BE123C; font-size: 14px; font-weight: 600;">YOUR GMAIL VERIFICATION CODE</p>
-            <div style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #9F1239; margin: 8px 0; font-family: monospace;">
+          <div style="background: #FFF1F2; border: 1px solid rgba(225, 29, 72, 0.2); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+            <p style="margin: 0 0 10px; color: #BE123C; font-size: 13px; font-weight: 700; letter-spacing: 0.05em;">YOUR VERIFICATION CODE</p>
+            <div style="font-size: 38px; font-weight: 900; letter-spacing: 10px; color: #9F1239; margin: 8px 0; font-family: monospace;">
               ${otp}
             </div>
-            <p style="margin: 8px 0 0; color: #BE123C; font-size: 12px;">Valid for 10 minutes · Do not share this code with anyone</p>
+            <p style="margin: 8px 0 0; color: #BE123C; font-size: 12px;">Valid for 10 minutes · Keep this code confidential</p>
           </div>
 
           <p style="color: #334155; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
-            We received a request to verify this email address for your RaktSaathi account.
-            Enter the code above in the verification window to complete your registration.
+            Please enter this 6-digit verification code to complete your RaktSaathi account registration.
           </p>
 
           <p style="color: #94A3B8; font-size: 12px; line-height: 1.5; margin: 24px 0 0; border-top: 1px solid #F1F5F9; padding-top: 16px;">
-            If you did not request this code, you can safely ignore this email.
+            If you did not request this verification, please disregard this email.
           </p>
         </div>
       `
     });
+
+    // Save OTP only when email was successfully dispatched
+    otpStore.set(normalized, { otp, expiresAt });
+    console.log(`[RaktSaathi OTP] Email dispatched successfully to ${normalized}`);
     return { sent: true };
-  } catch (err) {
-    console.error(`[RaktSaathi OTP] Failed to send email via SMTP:`, err);
-    // Return devOtp as graceful fallback so user is never blocked
-    return { sent: true, devOtp: otp };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[RaktSaathi OTP] Failed to send email to ${normalized}:`, errorMsg);
+    throw new HttpError(
+      500,
+      `Failed to deliver email to ${normalized}. Please verify your email address or check server SMTP settings.`
+    );
   }
 }
 

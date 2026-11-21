@@ -313,32 +313,25 @@ export default function Landing() {
                   animation: 'radar-pulse 1.5s infinite'
                 }}
               />
-              <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                National Blood Emergency Support
+              <Typography variant="caption" sx={{ fontWeight: 750, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                Verified Healthcare Lifeline Grid
               </Typography>
               <Typography variant="caption" sx={{ display: { xs: 'none', md: 'inline' }, opacity: 0.9 }}>
-                · 24/7 Toll-Free: <strong>104 / 108</strong> · Hospital Verified Live Network
+                · Zero Fake Appeals · 100% Hospital Clinical Verification · Real-Time Regional Dispatch
               </Typography>
             </Stack>
             <Stack direction="row" gap={2} alignItems="center">
-              <Button
-                component="a"
-                href="tel:104"
+              <Chip
                 size="small"
-                startIcon={<PhoneCall size={13} />}
+                label="LIVE NETWORK"
                 sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
                   color: '#FFFFFF',
-                  py: 0.2,
-                  px: 1,
-                  minHeight: 26,
-                  bgcolor: 'rgba(255,255,255,0.18)',
-                  borderRadius: 1.5,
-                  fontSize: 12,
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' }
+                  fontSize: 11,
+                  fontWeight: 800,
+                  height: 22
                 }}
-              >
-                Call 104 Emergency
-              </Button>
+              />
             </Stack>
           </Stack>
         </Container>
@@ -1629,10 +1622,10 @@ export default function Landing() {
               <Stack gap={1.25}>
                 <Box>
                   <Typography variant="caption" color="#64748B" fontWeight={700}>
-                    NATIONAL BLOOD HELPLINE
+                    NETWORK SUPPORT
                   </Typography>
                   <Typography variant="body2" color="#FFFFFF" fontWeight={750}>
-                    104 / 108 (24x7 Toll Free)
+                    Verified Regional Partner Hospitals & Blood Banks
                   </Typography>
                 </Box>
                 <Box>

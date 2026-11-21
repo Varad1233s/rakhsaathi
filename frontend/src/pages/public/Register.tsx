@@ -121,7 +121,6 @@ export default function Register() {
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [otpError, setOtpError] = useState<string | null>(null);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -157,8 +156,7 @@ export default function Register() {
     setSendingOtp(true);
     setOtpError(null);
     try {
-      const r = await api.post<{ ok: boolean; message: string; devOtp?: string }>('/auth/send-otp', { email });
-      if (r.devOtp) setDevOtp(r.devOtp);
+      await api.post<{ ok: boolean; message: string }>('/auth/send-otp', { email });
       setCountdown(30);
     } catch (e) {
       setOtpError(errMsg(e));
@@ -578,31 +576,9 @@ export default function Register() {
               </Alert>
             )}
 
-            {devOtp && (
-              <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: '#ECFDF5', border: '1px solid #A7F3D0', textAlign: 'center' }}>
-                <Typography variant="caption" color="#065F46" fontWeight={700} sx={{ display: 'block' }}>
-                  INSTANT VERIFICATION CODE:
-                </Typography>
-                <Chip
-                  label={devOtp}
-                  onClick={() => setOtpCode(devOtp)}
-                  sx={{
-                    fontWeight: 900,
-                    fontSize: 18,
-                    py: 2,
-                    px: 1,
-                    mt: 0.5,
-                    bgcolor: '#FFFFFF',
-                    color: '#065F46',
-                    cursor: 'pointer',
-                    border: '1px dashed #059669'
-                  }}
-                />
-                <Typography variant="caption" color="#047857" sx={{ display: 'block', mt: 0.5, fontSize: 11 }}>
-                  Click code to auto-fill
-                </Typography>
-              </Box>
-            )}
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              A 6-digit verification code has been dispatched to your email address. Please check your inbox (and spam folder) and enter it below.
+            </Alert>
 
             <TextField
               autoFocus
