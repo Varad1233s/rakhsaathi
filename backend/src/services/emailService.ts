@@ -22,7 +22,7 @@ setInterval(() => {
 
 function getTransporter() {
   const user = process.env.GMAIL_USER || process.env.SMTP_USER || 'patilvarad369@gmail.com';
-  const pass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
+  const pass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || 'yeeopbozpoorallc';
 
   if (!pass) {
     return null;
