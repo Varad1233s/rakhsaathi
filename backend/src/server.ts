@@ -8,6 +8,7 @@ import { prisma } from './config/db';
 import { errorHandler } from './utils/http';
 import { initSocket } from './sockets';
 import { authRouter, ensureDefaultAdmin } from './routes/auth';
+import { ensureDemoSeedRecords } from './services/seedService';
 import { hospitalsRouter } from './routes/hospitals';
 import { requestsRouter } from './routes/requests';
 import { donorRouter } from './routes/donor';
@@ -44,7 +45,9 @@ const server = http.createServer(app);
 initSocket(server);
 server.listen(env.PORT, () => {
   console.log(`RaktSaathi API listening on http://localhost:${env.PORT}`);
-  ensureDefaultAdmin().catch((e) => console.error('Admin init check error:', e));
+  ensureDefaultAdmin()
+    .then(() => ensureDemoSeedRecords())
+    .catch((e) => console.error('Admin/Seed init check error:', e));
 });
 
 // Expire overdue requests every 5 minutes.

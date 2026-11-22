@@ -3,7 +3,12 @@ import axios from 'axios';
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 export const TOKEN_KEY = 'rs_token';
 
-export const http = axios.create({ baseURL: `${API_URL}/api`, timeout: 20000 });
+export const http = axios.create({ baseURL: `${API_URL}/api`, timeout: 75000 });
+
+// Background warm-up ping to wake up free-tier cloud servers immediately on page visit
+if (typeof window !== 'undefined') {
+  http.get('/health').catch(() => {});
+}
 http.interceptors.request.use((cfg) => {
   const t = localStorage.getItem(TOKEN_KEY);
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
@@ -19,7 +24,7 @@ http.interceptors.response.use((r) => r, (err) => {
 
 export function errMsg(e: unknown): string {
   if (axios.isAxiosError(e)) {
-    if (!e.response) return 'Cannot reach the server. Check your connection and that the API is running.';
+    if (!e.response) return 'Cloud server is waking up from sleep. Please wait a moment and try again.';
     const d = e.response.data as { error?: string; details?: Record<string, string[]> } | undefined;
     const first = d?.details && typeof d.details === 'object' ? Object.entries(d.details).map(([k, v]) => `${k}: ${v?.[0]}`)[0] : undefined;
     return d?.error ? (first ? `${d.error} (${first})` : d.error) : `Request failed (${e.response.status})`;

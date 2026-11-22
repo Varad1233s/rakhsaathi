@@ -55,6 +55,8 @@ async function main() {
     if (!has) await prisma.bloodBatch.create({ data: { bloodBankId: bank.id, bloodGroup: g, unitsReceived: units, unitsRemaining: units, expiresAt: new Date(Date.now() + 35 * 864e5) } });
   }
   console.log('Demo data ready. Demo password for all demo users: Demo@12345');
+  const { ensureDemoSeedRecords } = await import('../src/services/seedService');
+  await ensureDemoSeedRecords();
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
