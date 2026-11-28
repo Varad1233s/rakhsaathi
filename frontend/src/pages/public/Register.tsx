@@ -117,23 +117,6 @@ export default function Register() {
   const [hospitalErr, setHospitalErr] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // OTP Verification state
-  const [otpOpen, setOtpOpen] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [otpNotice, setOtpNotice] = useState<string | null>(null);
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-  const [pendingValues, setPendingValues] = useState<Form | null>(null);
-
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
-
   const {
     register,
     control,
@@ -153,25 +136,6 @@ export default function Register() {
 
   if (user && !done) return <Navigate to={ROLE_HOME[user.role]} replace />;
 
-  const requestOtp = async (email: string) => {
-    setSendingOtp(true);
-    setOtpError(null);
-    setOtpNotice(null);
-    try {
-      const res = await api.post<{ ok: boolean; message: string; devOtp?: string }>('/auth/send-otp', { email });
-      setCountdown(30);
-      if (res.devOtp) {
-        setOtpCode(res.devOtp);
-        setOtpNotice(`Cloud notice: Outbound SMTP is restricted by Render's free network policy. Your verification code is ${res.devOtp}`);
-      }
-    } catch (e) {
-      setOtpError(errMsg(e));
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  // Called when form is validated: opens the OTP dialog and dispatches OTP to Gmail
   const onSubmit = handleSubmit(async (v) => {
     setError(null);
     setHospitalErr(false);
@@ -179,31 +143,13 @@ export default function Register() {
       setHospitalErr(true);
       return;
     }
-    setPendingValues(v);
-    setOtpCode('');
-    setOtpOpen(true);
-    await requestOtp(v.email);
-  });
 
-  // Called when user submits 6-digit OTP code in the dialog
-  const handleVerifyAndRegister = async () => {
-    if (!pendingValues) return;
-    if (otpCode.trim().length !== 6) {
-      setOtpError('Please enter the 6-digit verification code.');
-      return;
-    }
-
-    setVerifyingOtp(true);
-    setOtpError(null);
-
-    const v = pendingValues;
     const payload: Record<string, unknown> = {
       name: v.name,
       email: v.email,
       phone: v.phone,
       password: v.password,
-      role: v.role,
-      otp: otpCode.trim()
+      role: v.role
     };
 
     if (v.role === 'DONOR') {
@@ -228,15 +174,17 @@ export default function Register() {
 
     try {
       const r = await signUp(payload);
-      setOtpOpen(false);
-      if (r.pending) setDone(r.message ?? 'Account created successfully. Awaiting admin approval.');
-      else nav(ROLE_HOME[r.user!.role], { replace: true });
+      if (r?.pending) {
+        setDone(r.message || 'Account created successfully. Awaiting approval.');
+      } else if (r?.user?.role) {
+        nav(ROLE_HOME[r.user.role], { replace: true });
+      } else {
+        nav(ROLE_HOME[v.role], { replace: true });
+      }
     } catch (e) {
-      setOtpError(errMsg(e));
-    } finally {
-      setVerifyingOtp(false);
+      setError(errMsg(e));
     }
-  };
+  });
 
   if (done) {
     return (
@@ -523,7 +471,7 @@ export default function Register() {
             startIcon={<KeyRound size={18} />}
             sx={{ py: 1.5, fontSize: 16, fontWeight: 750, borderRadius: 2.5 }}
           >
-            {isSubmitting ? 'Validating…' : 'Verify Email & Create Account'}
+            {isSubmitting ? 'Creating account…' : 'Create Account'}
           </Button>
 
           <Typography variant="body2" textAlign="center" color="text.secondary">
@@ -534,122 +482,6 @@ export default function Register() {
           </Typography>
         </Stack>
       </AuthShell>
-
-      {/* Gmail OTP Verification Dialog */}
-      <Dialog
-        open={otpOpen}
-        onClose={verifyingOtp ? undefined : () => setOtpOpen(false)}
-        slotProps={{
-          paper: {
-            sx: {
-              borderRadius: 4,
-              p: 1.5,
-              maxWidth: 440,
-              width: '100%'
-            }
-          }
-        }}
-      >
-        <DialogTitle sx={{ pb: 1, textAlign: 'center' }}>
-          <Box
-            sx={{
-              width: 52,
-              height: 52,
-              borderRadius: 3,
-              display: 'grid',
-              placeItems: 'center',
-              bgcolor: '#FFF1F2',
-              color: '#E11D48',
-              mx: 'auto',
-              mb: 1.5
-            }}
-          >
-            <Mail size={26} />
-          </Box>
-          <Typography variant="h5" fontWeight={800} color="#0F172A">
-            Verify Your Gmail
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontWeight: 500 }}>
-            Enter the 6-digit code sent to <strong>{pendingValues?.email}</strong>
-          </Typography>
-        </DialogTitle>
-
-        <DialogContent sx={{ pt: 2 }}>
-          <Stack gap={2.5}>
-            {otpError && (
-              <Alert severity="error" sx={{ borderRadius: 2 }}>
-                {otpError}
-              </Alert>
-            )}
-
-            {otpNotice ? (
-              <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                {otpNotice}
-              </Alert>
-            ) : (
-              <Alert severity="info" sx={{ borderRadius: 2 }}>
-                A 6-digit verification code has been dispatched to your email address. Please check your inbox (and spam folder) and enter it below.
-              </Alert>
-            )}
-
-            <TextField
-              autoFocus
-              label="6-Digit OTP"
-              placeholder="123456"
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              slotProps={{
-                htmlInput: {
-                  maxLength: 6,
-                  style: {
-                    textAlign: 'center',
-                    letterSpacing: '10px',
-                    fontSize: 26,
-                    fontWeight: 800,
-                    fontFamily: 'monospace'
-                  }
-                }
-              }}
-              helperText="Code is valid for 10 minutes"
-            />
-
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="caption" color="text.secondary">
-                Didn't get the code?
-              </Typography>
-              <Button
-                size="small"
-                disabled={countdown > 0 || sendingOtp}
-                onClick={() => pendingValues && requestOtp(pendingValues.email)}
-                startIcon={sendingOtp ? <CircularProgress size={12} /> : <RefreshCw size={12} />}
-                sx={{ fontSize: 12, fontWeight: 700 }}
-              >
-                {countdown > 0 ? `Resend code in ${countdown}s` : 'Resend code'}
-              </Button>
-            </Stack>
-          </Stack>
-        </DialogContent>
-
-        <DialogActions sx={{ p: 3, pt: 0, gap: 1 }}>
-          <Button
-            onClick={() => setOtpOpen(false)}
-            disabled={verifyingOtp}
-            color="inherit"
-            sx={{ fontWeight: 650, borderRadius: 2 }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleVerifyAndRegister}
-            disabled={verifyingOtp || otpCode.trim().length !== 6}
-            startIcon={verifyingOtp ? <CircularProgress size={16} color="inherit" /> : <CheckCircle2 size={16} />}
-            sx={{ fontWeight: 750, px: 3, borderRadius: 2 }}
-          >
-            {verifyingOtp ? 'Verifying…' : 'Verify & Complete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </>
   );
 }

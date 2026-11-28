@@ -84,16 +84,6 @@ authRouter.post('/register', asyncHandler(async (req, res) => {
     throw new HttpError(409, 'An account with this email already exists');
   }
 
-  // Verify OTP check
-  let verified = isEmailVerified(b.email);
-  if (!verified && b.otp) {
-    verified = verifyOtp(b.email, b.otp);
-  }
-  if (!verified) {
-    throw new HttpError(400, 'Please verify your Gmail with an OTP code before completing registration.');
-  }
-  consumeEmailVerification(b.email);
-
   const passwordHash = await bcrypt.hash(b.password, 12);
   let status: 'ACTIVE' | 'PENDING_APPROVAL' = 'ACTIVE';
 
