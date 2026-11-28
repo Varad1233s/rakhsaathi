@@ -50,7 +50,7 @@ export function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export async function sendVerificationOtp(email: string): Promise<{ sent: boolean }> {
+export async function sendVerificationOtp(email: string): Promise<{ sent: boolean; devOtp?: string }> {
   const normalized = email.trim().toLowerCase();
   const otp = generateOtp();
   const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
@@ -109,9 +109,7 @@ export async function sendVerificationOtp(email: string): Promise<{ sent: boolea
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error(`[RaktSaathi OTP] Failed to send email via SMTP to ${normalized}:`, errorMsg);
 
-    // If cloud host (like Render free tier) blocks outbound SMTP ports 465/587,
-    // save the OTP in the store so the user or test is not completely locked out,
-    // and provide an informative message in the response.
+    // Save OTP in store so registration is never locked out
     otpStore.set(normalized, { otp, expiresAt });
 
     const isConnectionIssue = errorMsg.includes('ETIMEDOUT') ||
@@ -122,9 +120,9 @@ export async function sendVerificationOtp(email: string): Promise<{ sent: boolea
       errorMsg.includes('Connection timeout');
 
     if (isConnectionIssue) {
-      console.warn(`[RaktSaathi OTP Cloud Fallback] SMTP blocked by cloud provider network policy. Verification code for ${normalized} generated: ${otp}`);
-      // Return success with warning or raise clear error
-      return { sent: true };
+      console.warn(`[RaktSaathi OTP Cloud Fallback] Outbound SMTP port blocked by cloud host firewall. OTP generated: ${otp}`);
+      // Return devOtp so the user can see and complete registration seamlessly if cloud SMTP is blocked
+      return { sent: true, devOtp: otp };
     }
 
     throw new HttpError(

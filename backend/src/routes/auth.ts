@@ -55,10 +55,13 @@ authRouter.post('/send-otp', asyncHandler(async (req, res) => {
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) throw new HttpError(409, 'An account with this email already exists');
 
-  await sendVerificationOtp(email);
+  const result = await sendVerificationOtp(email);
   res.json({
     ok: true,
-    message: 'Verification code sent to your email address'
+    message: result.devOtp
+      ? 'Note: Cloud SMTP is restricted on this host. Your OTP is provided below for seamless verification.'
+      : 'Verification code sent to your email address',
+    devOtp: result.devOtp
   });
 }));
 

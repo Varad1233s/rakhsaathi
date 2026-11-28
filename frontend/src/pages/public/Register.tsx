@@ -120,6 +120,7 @@ export default function Register() {
   // OTP Verification state
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpCode, setOtpCode] = useState('');
+  const [otpNotice, setOtpNotice] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
@@ -155,9 +156,14 @@ export default function Register() {
   const requestOtp = async (email: string) => {
     setSendingOtp(true);
     setOtpError(null);
+    setOtpNotice(null);
     try {
-      await api.post<{ ok: boolean; message: string }>('/auth/send-otp', { email });
+      const res = await api.post<{ ok: boolean; message: string; devOtp?: string }>('/auth/send-otp', { email });
       setCountdown(30);
+      if (res.devOtp) {
+        setOtpCode(res.devOtp);
+        setOtpNotice(`Cloud notice: Outbound SMTP is restricted by Render's free network policy. Your verification code is ${res.devOtp}`);
+      }
     } catch (e) {
       setOtpError(errMsg(e));
     } finally {
@@ -576,9 +582,15 @@ export default function Register() {
               </Alert>
             )}
 
-            <Alert severity="info" sx={{ borderRadius: 2 }}>
-              A 6-digit verification code has been dispatched to your email address. Please check your inbox (and spam folder) and enter it below.
-            </Alert>
+            {otpNotice ? (
+              <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                {otpNotice}
+              </Alert>
+            ) : (
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                A 6-digit verification code has been dispatched to your email address. Please check your inbox (and spam folder) and enter it below.
+              </Alert>
+            )}
 
             <TextField
               autoFocus
